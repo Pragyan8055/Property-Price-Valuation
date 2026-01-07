@@ -539,6 +539,8 @@ The modeling stage produces:
 
 All modeling steps are fully reproducible and implemented in `model_training.ipynb`.
 
+<img width="861" height="547" alt="image" src="https://github.com/user-attachments/assets/93814872-e45c-4e4d-9a9f-7024b9f247b7" />
+
 ---
 
 ### 10. Modeling Summary
