@@ -310,197 +310,202 @@ Refer to `preprocessing.ipynb` for the full implementation.
 
 ---
 
-## 🤖 Modeling Framework
+## 🧠 Modeling Framework
 
-This section describes the dual-model strategy adopted for price prediction, detailing the mathematical structure of each model, the training procedure, and the logic behind combining their outputs for final price estimation.
-
----
-
-### 1. Modeling Strategy Overview
-
-Two complementary models are trained:
-
-1. **Model A: Pretrained Neural Network Regressor**
-2. **Model B: Tree-Based Gradient Boosting Regressor**
-
-The motivation for this architecture is to combine:
-- **Global nonlinear function approximation** (Model A)
-- **Local interaction discovery and robustness to heterogeneity** (Model B)
-
-This hybrid strategy improves predictive accuracy, stability, and computational efficiency.
+This section describes the neural network–based modeling strategy used to estimate final prices. Two complementary neural architectures are trained and combined to exploit both representation learning and task-specific calibration, while maintaining computational efficiency and numerical stability.
 
 ---
 
-### 2. Model A: Pretrained Neural Network
+### 1. Modeling Objectives
 
-#### 2.1 Model Structure
+The modeling stage is designed to:
 
-Model A is a feedforward neural network initialized using **pretrained weights** obtained from prior training on a large, related dataset.
+- Capture nonlinear relationships between features and prices
+- Exploit transfer learning to improve generalization
+- Reduce training time and overfitting risk
+- Combine structural and predictive strengths across models
 
-Let the feature vector be \( x \in \mathbb{R}^p \).
+Only **neural network models** are used in this project.
 
-The network implements:
+---
+
+### 2. Overview of the Two-Model Strategy
+
+Two neural networks are trained:
+
+1. **Pretrained Neural Network (Base Model)**  
+   - Learns general feature representations
+   - Acts as a high-capacity nonlinear function approximator
+   - Provides stable, transferable embeddings
+
+2. **Task-Specific Neural Network (Fine-Tuned Model)**  
+   - Trained on top of pretrained representations
+   - Focuses on price calibration and local heterogeneity
+   - Improves accuracy and robustness
+
+The final price prediction is obtained by **combining the outputs** of both models.
+
+---
+
+### 3. Model 1: Pretrained Neural Network
+
+#### 3.1 Architecture
+
+Let \( \mathbf{x}_i \in \mathbb{R}^d \) denote the preprocessed feature vector for observation \( i \).
+
+The pretrained neural network learns a mapping:
 
 \[
-\hat{y}_A = f_\theta(x) = W_L \sigma \left( \cdots \sigma(W_1 x + b_1) \cdots \right) + b_L
+\mathbf{h}_i = f_{\theta}(\mathbf{x}_i)
 \]
 
 where:
-- \( \sigma(\cdot) \) is a nonlinear activation function
-- \( \theta = \{W_l, b_l\}_{l=1}^L \) are learnable parameters
+- \( f_{\theta}(\cdot) \) is a deep feedforward neural network
+- \( \mathbf{h}_i \in \mathbb{R}^k \) is a latent representation
+- \( \theta \) denotes pretrained parameters
+
+The network consists of:
+- Fully connected layers
+- Nonlinear activations (ReLU)
+- Dropout regularization
 
 ---
 
-#### 2.2 Loss Function
+#### 3.2 Motivation for Pretraining
 
-The model is trained using **Mean Squared Error (MSE)**:
+Using a pretrained model:
 
-\[
-\mathcal{L}_A(\theta) = \frac{1}{N} \sum_{i=1}^N (y_i - \hat{y}_{A,i})^2
-\]
+- Improves **initialization quality**
+- Reduces convergence time
+- Stabilizes optimization in high-dimensional spaces
+- Mitigates overfitting under limited data
 
----
-
-#### 2.3 Role of Pretraining
-
-Using pretrained weights provides:
-
-- Faster convergence:
-\[
-\|\nabla \mathcal{L}_A^{(0)}\| \ll \|\nabla \mathcal{L}_A^{\text{random}}\|
-\]
-
-- Improved generalization via learned feature hierarchies
-- Reduced risk of overfitting on limited data
-
-**Key Insight:**  
-Pretraining shifts optimization from *representation learning* to *task adaptation*, reducing both training time and variance.
+**Key insight:**  
+Pretraining allows the model to learn **generic nonlinear structure** before task-specific fine-tuning.
 
 ---
 
-### 3. Model B: Gradient Boosting Regressor
+### 4. Model 2: Task-Specific Neural Network
 
-#### 3.1 Model Structure
+#### 4.1 Architecture
 
-Model B is an additive ensemble of regression trees:
+The second neural network maps learned representations to prices:
 
 \[
-\hat{y}_B = \sum_{m=1}^{M} \gamma_m h_m(x)
+\hat{y}_i^{(2)} = g_{\phi}(\mathbf{h}_i)
 \]
 
 where:
-- \( h_m(x) \) is a decision tree
-- \( \gamma_m \) is the learning rate–scaled contribution
+- \( g_{\phi}(\cdot) \) is a shallow neural network
+- \( \phi \) are trainable parameters
+- \( \hat{y}_i^{(2)} \) is the predicted price
+
+This model:
+- Has fewer layers
+- Emphasizes calibration rather than representation learning
+- Is trained with the pretrained layers frozen or partially unfrozen
 
 ---
 
-#### 3.2 Loss Function
+#### 4.2 Why a Second Model?
 
-The boosting procedure minimizes:
-
-\[
-\mathcal{L}_B = \sum_{i=1}^N (y_i - \hat{y}_{B,i})^2
-\]
-
-via functional gradient descent:
-
-\[
-h_m = \arg\min_h \sum_{i=1}^N \left( r_{i}^{(m)} - h(x_i) \right)^2
-\]
-
-with residuals:
-
-\[
-r_{i}^{(m)} = y_i - \hat{y}_{B,i}^{(m-1)}
-\]
+- Separates **representation learning** from **price estimation**
+- Improves interpretability of training dynamics
+- Enables controlled fine-tuning
+- Reduces variance in final predictions
 
 ---
 
-#### 3.3 Salient Properties
+### 5. Loss Functions
 
-- Automatically captures nonlinear interactions
-- Robust to multicollinearity
-- Requires minimal feature scaling
-- Performs well under heterogeneous regimes
+Both models are trained using **Mean Squared Error (MSE)** loss.
+
+#### 5.1 Mean Squared Error
+
+For \( N \) observations:
+
+\[
+\mathcal{L}_{\text{MSE}} = \frac{1}{N} \sum_{i=1}^{N} (y_i - \hat{y}_i)^2
+\]
+
+where:
+- \( y_i \) is the observed price
+- \( \hat{y}_i \) is the predicted price
+
+MSE is chosen because:
+- It penalizes large errors strongly
+- It aligns with continuous price estimation
+- It has well-behaved gradients
+
+---
+
+### 6. Optimization
+
+- Parameters are optimized using **Adam**
+- Learning rate scheduling is applied
+- Early stopping prevents overfitting
+
+Formally, parameters are updated as:
+
+\[
+\theta_{t+1} = \theta_t - \eta \cdot \nabla_{\theta} \mathcal{L}
+\]
+
+where \( \eta \) is the adaptive learning rate.
+
+---
+
+### 7. Model Combination Strategy
+
+Final prices are computed by **combining predictions** from both neural networks.
+
+Let:
+- \( \hat{y}_i^{(1)} \) be the prediction from the pretrained model
+- \( \hat{y}_i^{(2)} \) be the prediction from the fine-tuned model
+
+The final predicted price is:
+
+\[
+\hat{y}_i = \alpha \hat{y}_i^{(1)} + (1 - \alpha) \hat{y}_i^{(2)}, \quad \alpha \in [0,1]
+\]
+
+where \( \alpha \) is chosen via validation performance.
+
+---
+
+### 8. Why Model Combination Improves Performance
+
+- Reduces prediction variance
+- Balances global structure and local fit
+- Acts as an implicit regularization mechanism
+- Improves out-of-sample robustness
 
 **Interpretation:**  
-This model excels at *local structure discovery* and correcting systematic errors left by smooth approximators.
+The pretrained model captures broad nonlinear structure, while the fine-tuned model corrects systematic biases.
 
 ---
 
-### 4. Model Complementarity
+### 9. Final Outputs
 
-| Dimension              | Model A (Neural Net) | Model B (Boosting) |
-|------------------------|----------------------|--------------------|
-| Global smoothness      | ✔️                   | ❌                 |
-| Local interactions     | ❌                   | ✔️                 |
-| Data efficiency        | Medium               | High               |
-| Interpretability       | Low                  | Medium             |
-| Training speed         | Fast (pretrained)    | Moderate           |
+The modeling stage produces:
 
----
+- Individual model predictions
+- Combined final price estimates
+- Training and validation loss diagnostics
 
-### 5. Model Combination Strategy
-
-Final price predictions are obtained via **weighted ensembling**:
-
-\[
-\hat{y}_{\text{final}} = \alpha \hat{y}_A + (1 - \alpha) \hat{y}_B
-\]
-
-where:
-\[
-\alpha \in [0,1]
-\]
-
-is chosen via validation performance.
+All modeling steps are fully reproducible and implemented in `model_training.ipynb`.
 
 ---
 
-### 6. Theoretical Motivation for Ensembling
+### 10. Modeling Summary
 
-The ensemble reduces expected generalization error:
-
-\[
-\mathbb{E}[(y - \hat{y}_{\text{final}})^2] 
-= \alpha^2 \sigma_A^2 + (1-\alpha)^2 \sigma_B^2 + 2\alpha(1-\alpha)\text{Cov}(A,B)
-\]
-
-When prediction errors are weakly correlated:
-\[
-\text{Cov}(A,B) \approx 0
-\]
-
-the ensemble strictly dominates individual models.
-
----
-
-### 7. Training Procedure
-
-1. Train Model A using pretrained initialization
-2. Fine-tune on project-specific data
-3. Train Model B independently on the same feature matrix
-4. Optimize ensemble weight \( \alpha \) on validation set
-5. Generate final predicted prices
-
----
-
-### 8. Output and Interpretation
-
-- Individual model predictions are retained for diagnostics
-- Final prices reflect:
-  - Smooth global trends (Model A)
-  - Local corrections (Model B)
-
-This yields stable, accurate, and economically plausible price estimates.
-
----
-
-### 9. Reproducibility
-
-All modeling steps are:
-- Deterministic given random seeds
-- Fully documented in `model_training.ipynb`
-- Independent of data leakage
+| Aspect                     | Description |
+|----------------------------|-------------|
+| Model class                | Neural Networks only |
+| Pretraining                | Yes |
+| Loss function              | MSE |
+| Optimization               | Adam |
+| Model combination          | Weighted ensemble |
+| Output                     | Final predicted prices |
 
 ---
