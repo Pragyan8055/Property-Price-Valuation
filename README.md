@@ -1,5 +1,44 @@
 # Property-Price-Valuation
 
+# 📈 Neural Network–Based Price Prediction
+
+## Introduction
+
+Accurate price estimation in high-dimensional environments is a central problem in applied economics, data science, and computational decision-making. Traditional parametric approaches often struggle to accommodate nonlinearities, interaction effects, and heterogeneous responses across observations, particularly when the feature space is large and structurally complex.
+
+This project develops a **purely neural network–based framework** for price prediction, emphasizing robustness, interpretability of modeling choices, and computational efficiency. The approach combines rigorous data preparation with modern deep learning techniques, leveraging **pretraining and model ensembling** to improve generalization while reducing training instability.
+
+---
+
+### Motivation
+
+Price formation processes are rarely linear. They are influenced by:
+- Nonlinear interactions between observable characteristics
+- Latent structural factors that are difficult to specify ex ante
+- Heterogeneity across locations and contexts
+
+Neural networks provide a flexible function approximation framework capable of capturing such complexity. However, naïvely training deep models can lead to:
+- Overfitting
+- Slow convergence
+- Sensitivity to initialization and scaling
+
+This project addresses these challenges by integrating **exploratory data analysis, disciplined preprocessing, representation learning through pretraining, and controlled fine-tuning** within a unified pipeline.
+
+---
+
+### Methodological Contributions
+
+The key methodological features of the project are:
+
+- A structured **EDA pipeline** to diagnose distributional, spatial, and temporal properties of the data  
+- A **statistically motivated preprocessing stage** that controls skewness, scale, and redundancy  
+- A **two-stage neural network architecture**, separating representation learning from price calibration  
+- The use of **pretrained neural networks** to improve optimization stability and reduce training time  
+- A **model combination strategy** that balances global nonlinear structure with local predictive accuracy  
+
+Unlike many applied machine learning pipelines, this project **exclusively relies on neural networks**, avoiding tree-based or boosting methods in order to maintain architectural consistency and focus on representation learning.
+
+
 ## 📊 Exploratory Data Analysis (EDA)
 
 This section documents the exploratory analysis conducted to understand the structure, quality, and statistical properties of the dataset before model building. The objective of the EDA is to identify data issues, assess distributional behavior, examine relationships across variables, and guide feature engineering and model selection.
@@ -347,9 +386,43 @@ The final price prediction is obtained by **combining the outputs** of both mode
 
 ---
 
-### 3. Model 1: Pretrained Neural Network
+
+### 3. Model 1: Task-Specific Neural Network
 
 #### 3.1 Architecture
+
+The second neural network maps learned representations to prices:
+
+\[
+\hat{y}_i^{(2)} = g_{\phi}(\mathbf{h}_i)
+\]
+
+where:
+- \( g_{\phi}(\cdot) \) is a shallow neural network
+- \( \phi \) are trainable parameters
+- \( \hat{y}_i^{(2)} \) is the predicted price
+
+This model:
+- Has fewer layers
+- Emphasizes calibration rather than representation learning
+- Is trained with the pretrained layers frozen or partially unfrozen
+
+---
+
+#### 3.2 Why a Second Model?
+
+- Separates **representation learning** from **price estimation**
+- Improves interpretability of training dynamics
+- Enables controlled fine-tuning
+- Reduces variance in final predictions
+
+---
+<img width="1024" height="1024" alt="Gemini_Generated_Image_smddupsmddupsmdd" src="https://github.com/user-attachments/assets/aff05670-5ff6-42a9-9c35-2576c7cc6f39" />
+
+
+### 4. Model 2: Pretrained Neural Network
+
+#### 4.1 Architecture
 
 Let \( \mathbf{x}_i \in \mathbb{R}^d \) denote the preprocessed feature vector for observation \( i \).
 
@@ -371,7 +444,7 @@ The network consists of:
 
 ---
 
-#### 3.2 Motivation for Pretraining
+#### 4.2 Motivation for Pretraining
 
 Using a pretrained model:
 
@@ -384,37 +457,8 @@ Using a pretrained model:
 Pretraining allows the model to learn **generic nonlinear structure** before task-specific fine-tuning.
 
 ---
+<img width="1408" height="768" alt="Gemini_Generated_Image_fe08life08life08" src="https://github.com/user-attachments/assets/335700fe-0b0b-4d0c-80a4-6729ba7111e6" />
 
-### 4. Model 2: Task-Specific Neural Network
-
-#### 4.1 Architecture
-
-The second neural network maps learned representations to prices:
-
-\[
-\hat{y}_i^{(2)} = g_{\phi}(\mathbf{h}_i)
-\]
-
-where:
-- \( g_{\phi}(\cdot) \) is a shallow neural network
-- \( \phi \) are trainable parameters
-- \( \hat{y}_i^{(2)} \) is the predicted price
-
-This model:
-- Has fewer layers
-- Emphasizes calibration rather than representation learning
-- Is trained with the pretrained layers frozen or partially unfrozen
-
----
-
-#### 4.2 Why a Second Model?
-
-- Separates **representation learning** from **price estimation**
-- Improves interpretability of training dynamics
-- Enables controlled fine-tuning
-- Reduces variance in final predictions
-
----
 
 ### 5. Loss Functions
 
@@ -504,7 +548,7 @@ All modeling steps are fully reproducible and implemented in `model_training.ipy
 | Model class                | Neural Networks only |
 | Pretraining                | Yes |
 | Loss function              | MSE |
-| Optimization               | Adam |
+| Optimization               | Adam, Huber |
 | Model combination          | Weighted ensemble |
 | Output                     | Final predicted prices |
 
